@@ -49,6 +49,14 @@ public class EmissionDAO {
 		em.close();
 	}
 	
+	public void persist(Emission e) {
+		EntityManager em = emf.createEntityManager();
+		em.getTransaction().begin();
+		em.persist(e);
+		em.getTransaction().commit();
+		em.close();
+	}
+	
 	public AllData merge(AllData d) {
 		EntityManager em = emf.createEntityManager();
 		em.getTransaction().begin();
