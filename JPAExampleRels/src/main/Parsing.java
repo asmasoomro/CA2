@@ -1,16 +1,19 @@
 package main;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.text.DecimalFormat;
-import java.io.InputStream;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
@@ -28,14 +31,13 @@ import entities.Description;
 import entities.Emission;
 import entities.XML;
 
-
 public class Parsing {
 
     public static void main(String[] args) {
-        List<XML> xmlParsed = parseXMLData();
+        List<XML> xmlData = parseXMLData();
         List<Description> descriptions = parseDescriptions();
-        List<Emission> emissionsFromJSON = parseJSONData();
-        persistAllData(xmlParsed, emissionsFromJSON, descriptions);
+        List<Emission> emissionsData = parseJSONData();
+        persistAllData(xmlData, emissionsData, descriptions);
     }
 
     private static String formatValue(String value) {
@@ -170,117 +172,112 @@ public class Parsing {
         return emissions;
     }
 
-	
-	private static void persistAllData(List<XML> xmls, List<Emission> emissions, List<Description> descriptions) {
-	    EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("gasesPU");
-	    EntityManager entityManager = entityManagerFactory.createEntityManager();
-	    EntityTransaction transaction = null;
+    private static void persistAllData(List<XML> xmls, List<Emission> emissions, List<Description> descriptions) {
+        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("gasesPU");
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        EntityTransaction transaction = null;
 
-	    try {
-	        transaction = entityManager.getTransaction();
-	        transaction.begin();
+        try {
+            transaction = entityManager.getTransaction();
+            transaction.begin();
 
-	        //XML DATA 
-	        for (XML xml : xmls) {
-	            boolean matched = false;
+            // XML DATA
+            for (XML xml : xmls) {
+                boolean matched = false;
 
-	            //if matching data is in the json file
-	            for (Emission emission : emissions) {
-	                if (xml.getCategory().equals(emission.getCategory()) && xml.getGasUnits().equals(emission.getGasUnits())) {
-	                    String variance = calculateVariance(xml.getValue(), String.valueOf(emission.getValue()));
+                // if matching data is in the JSON file
+                for (Emission emission : emissions) {
+                    if (xml.getCategory().equals(emission.getCategory()) && xml.getGasUnits().equals(emission.getGasUnits())) {
+                        String variance = calculateVariance(xml.getValue(), String.valueOf(emission.getValue()));
 
-	                   AllData entity = new AllData(
-	                        xml.getCategory(),
-	                        null,
-	                        xml.getGasUnits(),
-	                        xml.getValue(),
-	                        String.valueOf(emission.getValue()),
-	                        variance
-	                    );
-	                   
-	                   for (Description d : descriptions) {
-	                	    if (d.getDescription().contains(xml.getCategory())) {
-	                	        entity.setDescription(d.getDescription());
-	                	        break;
-	                	    }
-	                	}
-	                    entityManager.persist(entity);
-	                    matched = true;
-	                    break;
-	                }
-	            }
+                        AllData entity = new AllData(
+                                xml.getCategory(),
+                                null,
+                                xml.getGasUnits(),
+                                xml.getValue(),
+                                String.valueOf(emission.getValue()),
+                                variance
+                        );
 
-	            // If no match found, add the XML data
-	            if (!matched) {
-	                AllData entity = new AllData(
-	                    xml.getCategory(),
-	                   null,
-	                    xml.getGasUnits(),
-	                    xml.getValue(),
-	                    null,
-	                    null
-	                );
-	                
-	                for (Description d : descriptions) {
-                	    if (d.getDescription().contains(xml.getCategory())) {
-                	        entity.setDescription(d.getDescription());
-                	        break;
-                	    }
-                	}
-	                entityManager.persist(entity);
-	            }
-	        }
-	        
-	        for (Emission emission : emissions) {
-	            boolean matched = false;
-	            for (XML xml : xmls) {
-	                if (emission.getCategory().equals(xml.getCategory()) && emission.getGasUnits().equals(xml.getGasUnits())) {
-	                	matched = true;
-	                    break;
-	                }
-	            }
-	            if (!matched) {
-	                AllData entity = new AllData(
-	                    emission.getCategory(),
-	                    null,
-	                    emission.getGasUnits(),
-	                    null,
-	                    String.valueOf(emission.getValue()),
-	                    null
-	                );
-	                
-	                for (Description d : descriptions) {
-                	    if (d.getDescription().contains(emission.getCategory())) {
-                	        entity.setDescription(d.getDescription());
-                	        break;
-                	    }
-                	}
-	                entityManager.persist(entity);
-	            }
-	        }
+                        for (Description d : descriptions) {
+                            if (d.getDescription().contains(xml.getCategory())) {
+                                entity.setDescription(d.getDescription());
+                                break;
+                            }
+                        }
+                        entityManager.persist(entity);
+                        matched = true;
+                        break;
+                    }
+                }
 
-	        transaction.commit();
-	    } catch (Exception e) {
-	        if (transaction != null && transaction.isActive()) {
-	            transaction.rollback();
-	        }
-	        e.printStackTrace();
-	    } finally {
-	        entityManager.close();
-	        entityManagerFactory.close();
-	    }
-	}
+                // If no match found, add the XML data
+                if (!matched) {
+                    AllData entity = new AllData(
+                            xml.getCategory(),
+                            null,
+                            xml.getGasUnits(),
+                            xml.getValue(),
+                            null,
+                            null
+                    );
 
+                    for (Description d : descriptions) {
+                        if (d.getDescription().contains(xml.getCategory())) {
+                            entity.setDescription(d.getDescription());
+                            break;
+                        }
+                    }
+                    entityManager.persist(entity);
+                }
+            }
 
-	private static String calculateVariance(String predicted, String readings) {
-	    BigDecimal predictedVal = new BigDecimal(predicted);
-	    BigDecimal readingsVal = new BigDecimal(readings);
+            for (Emission emission : emissions) {
+                boolean matched = false;
+                for (XML xml : xmls) {
+                    if (emission.getCategory().equals(xml.getCategory()) && emission.getGasUnits().equals(xml.getGasUnits())) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) {
+                    AllData entity = new AllData(
+                            emission.getCategory(),
+                            null,
+                            emission.getGasUnits(),
+                            null,
+                            String.valueOf(emission.getValue()),
+                            null
+                    );
 
-	    BigDecimal variance = readingsVal.subtract(predictedVal);
-	    DecimalFormat decimalFormat = new DecimalFormat("#.#############");
-	    String formattedVariance = decimalFormat.format(variance);
+                    for (Description d : descriptions) {
+                        if (d.getDescription().contains(emission.getCategory())) {
+                            entity.setDescription(d.getDescription());
+                            break;
+                        }
+                    }
+                    entityManager.persist(entity);
+                }
+            }
 
-	    return formattedVariance;
-	}
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction != null && transaction.isActive()) {
+                transaction.rollback();
+            }
+            e.printStackTrace();
+        } finally {
+            entityManager.close();
+            entityManagerFactory.close();
+        }
+    }
 
+    private static String calculateVariance(String predicted, String readings) {
+        BigDecimal predictedVal = new BigDecimal(predicted);
+        BigDecimal readingsVal = new BigDecimal(readings);
+
+        BigDecimal variance = readingsVal.subtract(predictedVal);
+        DecimalFormat decimalFormat = new DecimalFormat("#.#############");
+        return decimalFormat.format(variance);
+    }
 }
